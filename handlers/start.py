@@ -1,10 +1,12 @@
-from aiogram import Router, F
+from aiogram import Bot, Dispatcher, Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 from keyboards.main_keyboard import *
 from photo import *
-from keyboards.want_keyboard import main_want_keyboard
-
+from keyboards.main_keyboard import main_inline_keyboard
+import asyncio
+import logging
+from create_bot import bot, admins
 
 
 start_router = Router()
@@ -17,11 +19,12 @@ async def cmd_start(message: Message):
     "<blockquote>Я здесь специально для тебя, "
     "чтобы поднять тебе настроение 💫</blockquote>\n\n"
     "Выбирай, что бы тебе сейчас хотелось, "
-    "и я уверен — <tg-spoiler>кое-кто скоро тебе порадует 😉</tg-spoiler>"
+    "и я уверен — <tg-spoiler>кое-кто скоро тебя порадует 😉</tg-spoiler>"
     )
-    await message.answer_photo(photo, caption=text, reply_markup=get_main_keyboard())
+    await message.answer_photo(photo, caption=text, reply_markup=get_main_keyboard(), parse_mode = "HTML")
+    await message.answer(text = "Чего бы тебе хотелось?", reply_markup=start_want_main_inline_keyboard())
 
-@start_router.message(F.text == "О боте")
+@start_router.message(F.text == "О боте ℹ️")
 async def about_bot(message:Message):
     photo = FSInputFile("photo/little_princess.jpg")
     text = (
@@ -39,11 +42,80 @@ async def about_bot(message:Message):
         parse_mode="HTML" 
     )
 
-@start_router.message(F.text == "Я хочу..🎁")
+
+async def show_main_menu(
+    chat_id: int, 
+    bot: Bot, 
+    ):
+    """
+    Показывает главное меню.
+    
+    :param chat_id: ID чата, куда отправить
+    :param bot: Экземпляр бота
+    """
+    photo = FSInputFile("photo/photo_2026-06-24_03-19-26.jpg")
+    
+    text = (
+        "<b>✨ Приветствую!</b>\n\n"
+        "<blockquote>Я здесь специально для тебя, "
+        "чтобы поднять тебе настроение 💫</blockquote>\n\n"
+        "Выбирай, что бы тебе сейчас хотелось, "
+        "и я уверен — <tg-spoiler>кое-кто скоро тебя порадует 😉</tg-spoiler>"
+    )
+    
+    await bot.send_photo(
+            chat_id=chat_id,
+            photo=photo,
+            caption=text,
+            reply_markup=get_main_keyboard(),
+            parse_mode="HTML"
+        )
+    
+    await bot.send_message(
+        chat_id=chat_id,
+        text="Чего бы тебе хотелось?",
+        reply_markup=start_want_main_inline_keyboard()
+    )
+
+
+@start_router.message(F.text == "Главное меню📋")
+async def cmd_main_menu(message: Message, bot: Bot):
+    await show_main_menu(
+        chat_id=message.chat.id,
+        bot=bot,
+    )
+
+@start_router.message(F.text == "Сюрприз 🎁")
+async def cmd_want(message: Message):
+    photo = FSInputFile("photo/stich_surprise.jpg")
+    text = (
+    "💝 <b>Все самое лучшее — для любимой</b> 💝\n\n"
+    "<i>Я что-нибудь придумаю...</i> ✨"
+    )
+
+    await message.answer_photo(photo, caption = text, reply_markup= get_main_keyboard(),parse_mode="HTML")
+ 
+    for admin in admins:
+        await bot.send_message(
+                chat_id=admin,
+                text=f"🚨 <b>Важное уведомление: сделай шикарный сюприз для любимой</b>\n\n{text}",
+                parse_mode="HTML"
+            )
+
+@start_router.message(F.text == "Избранное 📌")
+async def cmd_want(message: Message):
+    text = (
+        "Тут должно быть что-то с бд от пользователя"
+    )
+
+    await message.answer(text,parse_mode="HTML")
+
+@start_router.message(F.text == "Топ любимого от бота ❤️")
 async def cmd_want(message: Message):
     photo = FSInputFile("photo/want_main_picture.jpg")
     text = (
-        "💭 <i>Чего бы тебе сейчас больше всего хотелось?</i> ✨"
+        "Пока ничего нет, бд скоро будет"
     )
 
-    await message.answer_photo(photo, caption = text, reply_markup= main_want_keyboard(),parse_mode="HTML")
+    await message.answer(text,parse_mode="HTML")
+

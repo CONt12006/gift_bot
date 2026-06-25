@@ -6,7 +6,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from decouple import config
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.client.session.aiohttp import AiohttpSession
-
+import sqlite3
+from pathlib import Path
 
 pg_db = (config('PG_LINK'))
 
