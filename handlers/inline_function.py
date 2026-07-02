@@ -9,6 +9,12 @@ from data.food import FOODS
 from data.Back import Backs
 from data.transition_food import transitions
 from data.end_food import end_food
+from database.models import Products, User, Favorites
+
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
+from database.database import get_session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 inline_router = Router()
@@ -23,22 +29,40 @@ async def start_want_main_inline(callback: CallbackQuery):
 @inline_router.callback_query(F.data.contains("mik"))
 async def handle_mik(callback: CallbackQuery):
     if callback.data in FOODS:
-        """Сработает на ЛЮБОЙ callback_data, где есть 'mik'"""
         await callback.answer("⚙️ Организовываю все самое вкусное...")
         await callback.message.answer("Скоро все будет для самой любимой")
 
+        name_food = FOODS[callback.data]["name"]
         photo = FSInputFile(FOODS[callback.data]["photo"])
+
         for admin in admins:
             await bot.send_photo(
-                    photo = photo,
-                    chat_id=admin,
-                    caption=f"🚨 <b>Важное уведомление: {FOODS[callback.data]['name']}</b>\n\n",
-                    parse_mode="HTML"
-                )
-        await show_main_menu(
-                chat_id=callback.message.chat.id,
-                bot=bot,
+                chat_id=admin,
+                photo=photo,
+                caption=f"🚨 <b>Важное уведомление: {name_food}</b>",
+                parse_mode="HTML",
             )
+
+        async with get_session() as session:
+            user_stmt = select(User).where(User.telegram_id == callback.from_user.id)
+            user_res = await session.execute(user_stmt)
+            user = user_res.scalar_one_or_none()
+            
+            query = select(Products).where(
+                Products.user_id == user.id,
+                Products.name == name_food,
+            )
+            res = await session.execute(query)
+            product = res.scalar_one_or_none()
+
+            if product is None:
+                product = Products(name=name_food, count=1, user_id=user.id)
+                session.add(product)
+            else:
+                product.count += 1
+
+            await session.commit()
+
     elif callback.data in Backs:
         await callback.message.delete()
         await callback.answer("⚙️ Организовываю все самое вкусное...")
@@ -63,3 +87,5 @@ async def handle_mik(callback: CallbackQuery):
             "⚙️ Выбирай, что тебе по душе:",
             reply_markup=end_food[callback.data]["keyboard"]()
         )
+
+    

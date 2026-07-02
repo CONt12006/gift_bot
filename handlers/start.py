@@ -1,18 +1,43 @@
+import os
+from pathlib import Path
 from aiogram import Bot, Dispatcher, Router, F
-from aiogram.filters import CommandStart, Command
-from aiogram.types import Message
+from aiogram.filters import CommandStart, Command, Filter
+from aiogram.types import Message, CallbackQuery, InputMediaPhoto, FSInputFile
 from keyboards.main_keyboard import *
 from photo import *
 from keyboards.main_keyboard import main_inline_keyboard
 import asyncio
-import logging
 from create_bot import bot, admins
-
+from database.models import User, Products, Favorites
+from database.database import get_session
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
+from database.database import get_session
+from sqlalchemy.ext.asyncio import AsyncSession
+from data.food import FOODS
 
 start_router = Router()
 
+
+def get_photo_path(food_name: str) -> str | None:
+    for item in FOODS.values():
+        if item.get("name") == food_name:
+            path = item.get("photo", "").strip()
+            return path if path else None
+    return None
+
+
 @start_router.message(CommandStart())
 async def cmd_start(message: Message):
+    tg_id = message.from_user.id
+    username = message.from_user.username
+
+    async with get_session() as session:
+        stmt = insert(User).values(telegram_id = tg_id, username = username)
+        stmt = stmt.on_conflict_do_nothing(index_elements=['telegram_id'])
+        await session.execute(stmt)
+        await session.commit()
+
     photo = FSInputFile("photo/photo_2026-06-24_03-19-26.jpg")
     text = (
     "<b>✨ Приветствую!</b>\n\n"
@@ -43,16 +68,7 @@ async def about_bot(message:Message):
     )
 
 
-async def show_main_menu(
-    chat_id: int, 
-    bot: Bot, 
-    ):
-    """
-    Показывает главное меню.
-    
-    :param chat_id: ID чата, куда отправить
-    :param bot: Экземпляр бота
-    """
+async def show_main_menu(chat_id: int, bot: Bot):
     photo = FSInputFile("photo/photo_2026-06-24_03-19-26.jpg")
     
     text = (
@@ -102,20 +118,92 @@ async def cmd_want(message: Message):
                 parse_mode="HTML"
             )
 
-@start_router.message(F.text == "Избранное 📌")
-async def cmd_want(message: Message):
-    text = (
-        "Тут должно быть что-то с бд от пользователя"
-    )
-
-    await message.answer(text,parse_mode="HTML")
 
 @start_router.message(F.text == "Топ любимого от бота ❤️")
-async def cmd_want(message: Message):
-    photo = FSInputFile("photo/want_main_picture.jpg")
-    text = (
-        "Пока ничего нет, бд скоро будет"
+async def cmd_top_from_bot(message: Message):
+    tg_id = message.from_user.id
+
+    async with get_session() as session:
+        user_stmt = select(User).where(User.telegram_id == tg_id)
+        user_res = await session.execute(user_stmt)
+        user = user_res.scalar_one_or_none()
+
+        query = (
+            select(Products)
+            .where(Products.user_id == user.id)
+            .order_by(Products.count.desc())
+            .limit(5)
+        )
+        res = await session.execute(query)
+        top_products = res.scalars().all()
+
+    if not top_products:
+        await message.answer(
+            "Вы еще ничего не выбирали, поэтому пока нечего предложить(",
+            parse_mode="HTML",
+        )
+        return
+
+    media: list[InputMediaPhoto] = []
+    buttons: list[InlineKeyboardButton] = []
+
+    for product in top_products:
+        buttons.append(
+            InlineKeyboardButton(
+                text=product.name,
+                callback_data=f"top_product:{product.id}",
+            )
+        )
+
+        photo_path = get_photo_path(product.name)
+        if photo_path:
+            media.append(
+                InputMediaPhoto(
+                    media=FSInputFile(photo_path),
+                    caption=product.name,
+                )
+            )
+
+    if media:
+        await message.answer_media_group(media=media)
+
+    rows = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=rows)
+
+    await message.answer(
+        "⚙️ Выбирай, что тебе по душе:",
+        reply_markup=keyboard,
     )
 
-    await message.answer(text,parse_mode="HTML")
 
+@start_router.callback_query(F.data.startswith("top_product:"))
+async def favorites_products_admin(callback: CallbackQuery):
+    _, product_id_str = callback.data.split(":")
+    product_id = int(product_id_str)
+
+    async with get_session() as session:
+        stmt = select(Products).where(Products.id == product_id)
+        res = await session.execute(stmt)
+        product = res.scalar_one_or_none()
+
+    if product is None:
+        await callback.answer("Не удалось найти такой продукт в базе 😔", show_alert=True)
+        return
+
+    for admin in admins:
+        await bot.send_message(
+            chat_id=admin,
+            text=(
+                f"🚨 Важное уведомление\n\n"
+                f"Пользователь @{callback.from_user.username or callback.from_user.id} "
+                f"выбрал еду: <b>{product.name}</b>\n"
+                f"ID продукта: {product.id}"
+            ),
+            parse_mode="HTML",
+        )
+
+    await callback.message.answer(
+        "Скоро всё будет для самой любимой 💝",
+        parse_mode="HTML",
+    )
+    await callback.answer()
