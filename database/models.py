@@ -23,7 +23,7 @@ class User(Base):
 class Favorites(Base):
     __tablename__ = "favorites"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement = True)
     name: Mapped[str] = mapped_column(String(100))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
@@ -33,7 +33,7 @@ class Favorites(Base):
 class Products(Base):
     __tablename__ = "products"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement = True)
     name: Mapped[str] = mapped_column(String(100))
     count: Mapped[int] = mapped_column(Integer, default=0)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
