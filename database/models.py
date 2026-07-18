@@ -1,4 +1,4 @@
-from sqlalchemy import String, BigInteger, Integer, ForeignKey
+from sqlalchemy import String, BigInteger, Integer, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.database import Base
 
@@ -28,6 +28,10 @@ class Favorites(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
     user: Mapped["User"] = relationship(back_populates="favorites")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_user_favorite_name"),
+    )
 
 
 class Products(Base):

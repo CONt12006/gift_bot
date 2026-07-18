@@ -29,7 +29,7 @@ async_session = async_sessionmaker(
 
 
 class Base(DeclarativeBase):
-    """Базовый класс для всех моделей."""
+    """Базовый класс для всех моделей"""
     pass
 
 @asynccontextmanager

@@ -9,6 +9,7 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="Главное меню📋")],
             [KeyboardButton(text="Сюрприз 🎁")],
             [KeyboardButton(text="Топ любимого от бота ❤️")],
+            [KeyboardButton(text="Избранное ⭐️")],
             [KeyboardButton(text="О боте ℹ️")]
         ],
         resize_keyboard=True

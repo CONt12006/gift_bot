@@ -15,16 +15,9 @@ from sqlalchemy.dialects.postgresql import insert
 from database.database import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from data.food import FOODS
+from utils.food_utils import get_photo_path
 
 start_router = Router()
-
-
-def get_photo_path(food_name: str) -> str | None:
-    for item in FOODS.values():
-        if item.get("name") == food_name:
-            path = item.get("photo", "").strip()
-            return path if path else None
-    return None
 
 
 @start_router.message(CommandStart())

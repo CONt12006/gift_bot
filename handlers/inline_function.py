@@ -16,6 +16,12 @@ from sqlalchemy.dialects.postgresql import insert
 from database.database import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from database.database import get_session
+from database.models import User
+from sqlalchemy import select
+from favorites import is_favorite, _get_user_id
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
 
 inline_router = Router()
 
@@ -34,6 +40,20 @@ async def handle_mik(callback: CallbackQuery):
 
         name_food = FOODS[callback.data]["name"]
         photo = FSInputFile(FOODS[callback.data]["photo"])
+
+        async with get_session() as session:
+            user_id = await _get_user_id(session, callback.from_user.id)
+            is_fav = await is_favorite(session, user_id, name_food) if user_id else False
+
+        heart = "❤️ В избранном" if is_fav else "🤍 В избранное"
+        builder = InlineKeyboardBuilder()
+        builder.button(text=heart, callback_data=f"fav:{callback.data}")
+        
+        await callback.message.answer(
+            "💝",
+            reply_markup=builder.as_markup()
+        )
+
 
         for admin in admins:
             await bot.send_photo(

@@ -1,5 +1,6 @@
 import asyncio
 from create_bot import bot, dp
+from favorites import favorites_router
 
 from handlers.start import start_router
 from handlers.inline_function import inline_router
@@ -10,6 +11,7 @@ from database.models import User, Products, Favorites
 
 
 async def main():
+    dp.include_router(favorites_router)
     dp.include_router(start_router)
     dp.include_router(inline_router)
     dp.include_router(admin_router)
